@@ -2,6 +2,8 @@ import './Create.css';
 import {useEffect, useState} from 'react';
 import Select from 'react-select';
 import {useCollection} from '../../hooks/useCollection';
+import {timestamp} from '../../firebase/config';
+import {useAuthContext} from '../../hooks/useAuthContext';
 
 const categories = [
   {value: 'development', label: 'Development'},
@@ -13,12 +15,14 @@ const categories = [
 export default function Create() {
   const {documents} = useCollection('users');
   const [users, setUsers] = useState([]);
+  const {user} = useAuthContext();
 
   const [name, setName] = useState('');
   const [details, setDetails] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [category, setCategory] = useState('');
   const [assignedUsers, setAssignedUsers] = useState([]);
+  const [formError, setFormError] = useState(null);
 
   useEffect(() => {
     if (documents) {
@@ -31,7 +35,43 @@ export default function Create() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log(name, details, dueDate, category.value, assignedUsers);
+    setFormError(null);
+
+    if (!category) {
+      setFormError('Please select project category');
+      return;
+    }
+
+    if (assignedUsers.length < 1) {
+      setFormError('Please assign the project to at least 1 user');
+      return;
+    }
+
+    const createdBy = {
+      displayName: user.displayName,
+      photoURL: user.photoURL,
+      id: user.uid,
+    };
+
+    const assignedUsersList = assignedUsers.map((user) => {
+      return {
+        displayName: user.value.displayName,
+        photoURL: user.value.photoURL,
+        id: user.value.id,
+      };
+    });
+
+    const project = {
+      name,
+      details,
+      category: category.value,
+      dueDate: timestamp.fromDate(new Date(dueDate)),
+      comments: [],
+      createdBy,
+      assignedUsersList,
+    };
+
+    console.log(project);
   };
 
   return (
@@ -49,6 +89,7 @@ export default function Create() {
             }}
           />
         </label>
+
         <label>
           <span>Project details:</span>
           <textarea
@@ -60,6 +101,7 @@ export default function Create() {
             }}
           ></textarea>
         </label>
+
         <label>
           <span>Set due date:</span>
           <input
@@ -71,13 +113,16 @@ export default function Create() {
             }}
           />
         </label>
+
         <label>
           <span>Project category:</span>
           <Select
             onChange={(option) => setCategory(option)}
             options={categories}
+            required
           />
         </label>
+
         <label>
           <span>Assign to:</span>
           <Select
@@ -90,6 +135,8 @@ export default function Create() {
         </label>
 
         <button className='btn'>Add Project</button>
+
+        {formError && <p className='error'>{formError}</p>}
       </form>
     </div>
   );
